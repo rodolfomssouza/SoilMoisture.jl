@@ -1,0 +1,13 @@
+name = "SoilMoisture"
+uuid = "e1ea8f92-7ff6-4111-80d4-1143a1b57969"
+authors = ["Rodolfo Souza rodolfomssouza@gmail.com"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.9"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
