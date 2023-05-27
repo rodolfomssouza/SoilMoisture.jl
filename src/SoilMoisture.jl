@@ -47,4 +47,30 @@ function rainfall_poisson(nevents::Int64, α::Float64, λ::Float64)
     return rain
 end
 
+
+
+"""
+Computes evapotranspiration losses
+
+# Arguments
+- `s`: soil moisture
+- `sh`: soil moisture at hygroscopic point
+- `sw`: soil moisture at wilting point
+- `sstar`: soil moisture below field capacity
+- `emax`: maximum evapotranspiration rate
+- `ew`: soil evaporation rate
+
+"""
+function evapotranspiration(s, sh, sw, sstar, emax, ew)::Float64
+    if s <= sh
+        et = 0.0
+    elseif θh <= θ <= sw
+        et = ew * (s - sh) / (sw - sh)
+    elseif sw <= s <= sstar
+        et = ew + (emax - ew) * (s - sw) / (sstar - sw)
+    else
+        et = emax
+    end
+    return et
+end
 end
