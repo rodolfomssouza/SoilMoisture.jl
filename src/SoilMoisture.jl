@@ -10,6 +10,8 @@ export rainfall_poisson
 export evapotranspiration
 export leakage
 export water_loss
+export soil_water_balance
+
 
 # %% Functions ---------------------------------------------------------------
 
@@ -139,7 +141,7 @@ This function assumes that the canopy interception is negligible.
 - `ew`: soil evaporation rate
 - `dt`: time step
 """
-function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)::Float64
+function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)::Vector{Float64}
     # Soil water storage
     nzr = n * zr
 
@@ -147,11 +149,11 @@ function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew,
     s = s + rain / nzr
 
     # Check for runoff
-    if s > 1
+    if s > 1.0
         runoff = (s - 1) * nzr
-        s = 1
+        s = 1.0
     else
-        runoff = 0
+        runoff = 0.0
     end
 
     # Evapotranspiration
@@ -163,7 +165,8 @@ function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew,
     s = s - lk / nzr
 
     # Return fluxes
-    return s, et, lk, runoff
+    res = [s, et, lk, runoff]
+    return res
 end
 
 end
