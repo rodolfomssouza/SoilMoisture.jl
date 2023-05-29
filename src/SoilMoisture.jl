@@ -14,6 +14,7 @@ export water_loss
 export soil_water_balance
 export solve_swb
 export dt2daily
+export soil_rp 
 
 
 # %% Functions ---------------------------------------------------------------
@@ -278,5 +279,20 @@ function dt2daily(df)
     return df1
 end
 
+
+"""
+Soil penetration resistance
+
+`soil_rp(0.45, 1.68, -5.75, 6.45, -15.3)`
+
+# Arguments
+- `s`: soil moisture.
+- `bd`: soil bulk density.
+- `a`, `b`, and `c`: soil penetration resistance parameters.
+"""
+function soil_rp(s, bd, a, b, c)::Float64
+    rp = exp(a + b * bd + c * s)
+    return rp
+end
 
 end

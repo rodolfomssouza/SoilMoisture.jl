@@ -18,6 +18,10 @@ using Test
     n = 0.50
     zr = 40.0
     dt = 1 / 48
+    a = -5.75
+    b = 6.50
+    c = -15.50
+    bd = 1.68
     rain1 = 0.0
     rain2 = 10.0
     rain3 = zeros(48 * 10)
@@ -52,5 +56,5 @@ using Test
     res2 = dt2daily(res1)
     @test sum(res1.Q) == 0.0
     @test size(res2)[1] == 11
-
+    @test round(soil_rp(s4, bd, a, b, c), digits=2) == 0.0
 end
