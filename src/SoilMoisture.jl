@@ -2,6 +2,7 @@ module SoilMoisture
 
 # Write your package code here.
 # %% Packages ----------------------------------------------------------------
+using DataFrames
 using Distributions
 
 
@@ -11,6 +12,8 @@ export evapotranspiration
 export leakage
 export water_loss
 export soil_water_balance
+export solve_swb
+export dt2daily
 
 
 # %% Functions ---------------------------------------------------------------
@@ -58,10 +61,10 @@ Computes evapotranspiration losses
 
 # Arguments
 - `s`: soil moisture
-- `sh`: soil moisture at hygroscopic point
-- `sw`: soil moisture at wilting point
-- `sstar`: soil moisture below field capacity
-- `emax`: maximum evapotranspiration rate
+- `sh`: soil moisture at hygroscopic point.
+- `sw`: soil moisture at wilting point.
+- `sstar`: soil moisture below field capacity.
+- `emax`: maximum evapotranspiration rate.
 - `ew`: soil evaporation rate
 
 """
@@ -83,10 +86,10 @@ end
 Computes leakage
 
 # Arguments
-- `s`: soil moisture
-- `sfc`: soil moisture at field capacity
-- `b`: leakage curve exponent
-- `ks`: hydralic conductivity
+- `s`: soil moisture.
+- `sfc`: soil moisture at field capacity.
+- `b`: leakage curve exponent.
+- `ks`: hydralic conductivity.
 """
 function leakage(s, sfc, b, ks)::Float64
     if s <= sfc
@@ -104,15 +107,15 @@ Water loss function
 Combines evapotranspiration and leakage as a function of soil moisture.
 
 # Arguments
-- `s`: soil moisture
-- `sh`: soil moisture at hygroscopic point
-- `sw`: soil moisture at wilting point
-- `sstar`: soil moisture below field capacity
-- `sfc`: soil moisture at field capacity
-- `emax`: maximum evapotranspiration rate
-- `ew`: soil evaporation rate
-- `b`: leakage curve exponent
-- `ks`: hydralic conductivity
+- `s`: soil moisture.
+- `sh`: soil moisture at hygroscopic point.
+- `sw`: soil moisture at wilting point.
+- `sstar`: soil moisture below field capacity.
+- `sfc`: soil moisture at field capacity.
+- `emax`: maximum evapotranspiration rate.
+- `ew`: soil evaporation rate.
+- `b`: leakage curve exponent.
+- `ks`: hydralic conductivity.
 """
 function water_loss(s, sh, sw, sstar, sfc, emax, ew, b, ks)::Float64
     et = evapotranspiration(s, sh, sw, sstar, emax, ew)
@@ -127,21 +130,35 @@ Computes the soil water balance
 This function assumes that the canopy interception is negligible.
 
 # Arguments
-- `rain`: rainfall
-- `s`: soil moisture
-- `sh`: soil moisture at hygroscopic point
-- `sw`: soil moisture at wilting point
-- `sstar`: soil moisture below field capacity
-- `sfc`: soil moisture at field capacity
-- `b`: leakage curve exponent
-- `ks`: hydralic conductivity
-- `n`: porosity
-- `zr`: root zone depth
-- `emax`: maximum evapotranspiration rate
-- `ew`: soil evaporation rate
-- `dt`: time step
+- `rain`: rainfall.
+- `s`: soil moisture.
+- `sh`: soil moisture at hygroscopic point.
+- `sw`: soil moisture at wilting point.
+- `sstar`: soil moisture below field capacity.
+- `sfc`: soil moisture at field capacity.
+- `b`: leakage curve exponent.
+- `ks`: hydralic conductivity.
+- `n`: porosity.
+- `zr`: root zone depth.
+- `emax`: maximum evapotranspiration rate.
+- `ew`: soil evaporation rate.
+- `dt`: time step.
 """
-function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)::Vector{Float64}
+function soil_water_balance(
+    rain,
+    s,
+    sh,
+    sw,
+    sstar,
+    sfc,
+    b,
+    ks,
+    n,
+    zr,
+    emax,
+    ew,
+    dt,
+)::Vector{Float64}
     # Soil water storage
     nzr = n * zr
 
@@ -150,6 +167,7 @@ function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew,
 
     # Check for runoff
     if s > 1.0
+        println("Problem")
         runoff = (s - 1) * nzr
         s = 1.0
     else
@@ -168,5 +186,97 @@ function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew,
     res = [s, et, lk, runoff]
     return res
 end
+
+
+"""
+Solve soil water balance model
+
+# Arguments
+-`rain`: a vector of rainfall series at the same time step the model will be solved.
+-`s`: initial guess for the soil moisture value.
+-`params`: a dictionary with all parameters needed to for `soil_water_balance()` function.
+"""
+function solve_swb(rain, s, params)
+
+    # Unzip parameters
+    sh = params[:sh]
+    sw = params[:sw]
+    sstar = params[:sstar]
+    sfc = params[:sfc]
+    b = params[:b]
+    ks = params[:ks]
+    n = params[:n]
+    zr = params[:zr]
+    emax = params[:emax]
+    ew = params[:ew]
+    dt = params[:dt]
+
+    # Create object to receive results
+    nr = length(rain) + 1
+    s_res = zeros(nr)
+    et_res = zeros(nr)
+    lk_res = zeros(nr)
+    runoff_res = zeros(nr)
+    s_res[1] = s
+
+    # Create vector for time
+    ndays = Int((nr - 1) * dt)
+    days = [1:ndays;]
+    days = repeat(days, inner = Int(1 / dt))
+    days = vcat(0, days)
+    days_cont = @. [(1 + dt):dt:(ndays + 1);] - dt
+
+    # Solve model
+    for i in eachindex(rain)
+        sol = soil_water_balance(
+            rain[i],
+            s_res[i],
+            sh,
+            sw,
+            sstar,
+            sfc,
+            b,
+            ks,
+            n,
+            zr,
+            emax,
+            ew,
+            dt,
+        )
+        s_res[i + 1] = sol[1]
+        et_res[i + 1] = sol[2]
+        lk_res[i + 1] = sol[3]
+        runoff_res[i + 1] = sol[4]
+    end
+
+    # Create dataframe to export results
+    df = DataFrame(
+        Days = days,
+        DaysCont = vcat(0, days_cont),
+        Rain = vcat(0, rain),
+        Q = runoff_res,
+        Lk = lk_res,
+        ET = et_res,
+        s = s_res,
+    )
+    return df
+end
+
+
+"""
+Convert soil water balance results to daily time-scale
+"""
+function dt2daily(df)
+    df1 = combine(
+        groupby(df, :Days),
+        :Rain => sum,
+        :Q => sum,
+        :s => mean,
+        :Lk => sum,
+        :ET => sum,
+    )
+    return df1
+end
+
 
 end

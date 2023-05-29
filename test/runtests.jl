@@ -20,6 +20,20 @@ using Test
     dt = 1 / 48
     rain1 = 0.0
     rain2 = 10.0
+    rain3 = zeros(48 * 10)
+    params = (
+        sh = sh,
+        sw = sw,
+        sstar = sstar,
+        sfc = sfc,
+        emax = emax,
+        ew = ew,
+        b = b,
+        ks = ks,
+        n = n,
+        zr = zr,
+        dt = dt
+             )
 
     # Tests
     @test rainfall_poisson(1, 0.0, 0.0)[1] == 0.0
@@ -34,4 +48,9 @@ using Test
     @test water_loss(s4, sh, sw, sstar, sfc, emax, ew, b, ks) == (ks + emax)
     @test soil_water_balance(rain1, s1, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)[1] == s1
     @test soil_water_balance(rain2, s4, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)[4] == rain2
+    res1 = solve_swb(rain3, s3, params)
+    res2 = dt2daily(res1)
+    @test sum(res1.Q) == 0.0
+    @test size(res2)[1] == 11
+
 end
