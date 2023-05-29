@@ -4,8 +4,9 @@ using Test
 @testset "SoilMoisture.jl" begin
     # Parameters
     s1 = 0.10
-    s2 = 0.75
-    s3 = 1.00
+    s2 = 0.20
+    s3 = 0.45
+    s4 = 1.00
     sh = 0.12
     sw = 0.25
     sstar = 0.50
@@ -22,12 +23,15 @@ using Test
 
     # Tests
     @test rainfall_poisson(1, 0.0, 0.0)[1] == 0.0
+    @test rainfall_poisson(1, 1.0, 1.0)[1] > 0.0
     @test evapotranspiration(s1, sh, sw, sstar, emax, ew) == 0.0 
-    @test evapotranspiration(s2, sh, sw, sstar, emax, ew) == emax 
+    @test evapotranspiration(s4, sh, sw, sstar, emax, ew) == emax 
+    @test round(evapotranspiration(s2, sh, sw, sstar, emax, ew), digits=2) == 0.03 
+    @test round(evapotranspiration(s3, sh, sw, sstar, emax, ew), digits=2) == 0.41 
     @test leakage(s1, sfc, b, ks) == 0.0
-    @test leakage(s3, sfc, b, ks) == ks
+    @test leakage(s4, sfc, b, ks) == ks
     @test water_loss(s1, sh, sw, sstar, sfc, emax, ew, b, ks) == 0.0
-    @test water_loss(s3, sh, sw, sstar, sfc, emax, ew, b, ks) == (ks + emax)
+    @test water_loss(s4, sh, sw, sstar, sfc, emax, ew, b, ks) == (ks + emax)
     @test soil_water_balance(rain1, s1, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)[1] == s1
-    @test soil_water_balance(rain2, s3, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)[4] == rain2
+    @test soil_water_balance(rain2, s4, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)[4] == rain2
 end
