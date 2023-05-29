@@ -95,6 +95,7 @@ function leakage(s, sfc, b, ks)::Float64
     return lk
 end
 
+
 """
 Water loss function
 
@@ -105,19 +106,64 @@ Combines evapotranspiration and leakage as a function of soil moisture.
 - `sh`: soil moisture at hygroscopic point
 - `sw`: soil moisture at wilting point
 - `sstar`: soil moisture below field capacity
+- `sfc`: soil moisture at field capacity
 - `emax`: maximum evapotranspiration rate
 - `ew`: soil evaporation rate
-- `sfc`: soil moisture at field capacity
 - `b`: leakage curve exponent
 - `ks`: hydralic conductivity
 """
-function water_loss(s, sh, sw, sstar, emax, ew, sfc, b, ks)::Float64
+function water_loss(s, sh, sw, sstar, sfc, emax, ew, b, ks)::Float64
     et = evapotranspiration(s, sh, sw, sstar, emax, ew)
     lk = leakage(s, sfc, b, ks)
     return et + lk
 end
 
-"""
 
 """
+Computes the soil water balance
+
+This function assumes that the canopy interception is negligible.
+
+# Arguments
+- `rain`: rainfall
+- `s`: soil moisture
+- `sh`: soil moisture at hygroscopic point
+- `sw`: soil moisture at wilting point
+- `sstar`: soil moisture below field capacity
+- `sfc`: soil moisture at field capacity
+- `b`: leakage curve exponent
+- `ks`: hydralic conductivity
+- `n`: porosity
+- `zr`: root zone depth
+- `emax`: maximum evapotranspiration rate
+- `ew`: soil evaporation rate
+- `dt`: time step
+"""
+function soil_water_balance(rain, s, sh, sw, sstar, sfc, b, ks, n, zr, emax, ew, dt)::Float64
+    # Soil water storage
+    nzr = n * zr
+
+    # Add rainfall
+    s = s + rain / nzr
+
+    # Check for runoff
+    if s > 1
+        runoff = (s - 1) * nzr
+        s = 1
+    else
+        runoff = 0
+    end
+
+    # Evapotranspiration
+    et = evapotranspiration(s, sh, sw, sstar, emax, ew) * dt
+    s = s - et / nzr
+
+    # Leakage
+    lk = leakage(s, sfc, b, ks) * dt
+    s = s - lk / nzr
+
+    # Return fluxes
+    return s, et, lk, runoff
+end
+
 end
