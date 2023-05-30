@@ -195,7 +195,6 @@ function soil_water_balance(
 
     # Check for runoff
     if s > 1.0
-        println("Problem")
         runoff = (s - 1) * nzr
         s = 1.0
     else
