@@ -58,6 +58,8 @@ end
 
 
 """
+`evapotranspirationi(s, sh, sw, sstar, emax, ew)`
+
 Computes evapotranspiration losses
 
 # Arguments
@@ -68,6 +70,17 @@ Computes evapotranspiration losses
 - `emax`: maximum evapotranspiration rate.
 - `ew`: soil evaporation rate
 
+# Example
+```
+s = 0.45
+sh = 0.12
+sw = 0.20
+sstar = 0.55
+emax = 0.50
+ew = 0.05
+
+et = evapotranspiration(s, sh, sw, sstar, emax, ew)
+```
 """
 function evapotranspiration(s, sh, sw, sstar, emax, ew)::Float64
     if s <= sh
@@ -84,13 +97,25 @@ end
 
 
 """
-Computes leakage
+`leakage(s, sfc, b, ks)`
+
+Computes the soil leakage
 
 # Arguments
 - `s`: soil moisture.
 - `sfc`: soil moisture at field capacity.
 - `b`: leakage curve exponent.
 - `ks`: hydralic conductivity.
+
+# Example
+```
+s = 0.60
+sfc = 0.55
+b = 4.5
+ks = 150
+
+lk = leakage(s, sfc, b, ks)
+```
 """
 function leakage(s, sfc, b, ks)::Float64
     if s <= sfc
@@ -103,6 +128,8 @@ end
 
 
 """
+`water_loss(s, sh, sw, sstar, sfc, emax, ew, b, ks)`
+
 Water loss function
 
 Combines evapotranspiration and leakage as a function of soil moisture.
@@ -193,9 +220,9 @@ end
 Solve soil water balance model
 
 # Arguments
--`rain`: a vector of rainfall series at the same time step the model will be solved.
--`s`: initial guess for the soil moisture value.
--`params`: a dictionary with all parameters needed to for `soil_water_balance()` function.
+- `rain`: a vector of rainfall series at the same time step the model will be solved.
+- `s`: initial guess for the soil moisture value.
+- `params`: a dictionary with all parameters needed to for `soil_water_balance()` function.
 """
 function solve_swb(rain, s, params)
 
@@ -283,12 +310,22 @@ end
 """
 Soil penetration resistance
 
-`soil_rp(0.45, 1.68, -5.75, 6.45, -15.3)`
+`soil_rp(s, bd, a, b, c)`
 
 # Arguments
 - `s`: soil moisture.
 - `bd`: soil bulk density.
 - `a`, `b`, and `c`: soil penetration resistance parameters.
+
+# Example
+```
+s = 0.45
+bd = 1.68
+a = -5.75
+b = 6.45
+c = -15.30
+rp = soil_rp(s, bd, a, b, c)
+```
 """
 function soil_rp(s, bd, a, b, c)::Float64
     rp = exp(a + b * bd + c * s)
