@@ -193,7 +193,7 @@ function soil_water_balance(
     s += rain / nzr
 
     # Check for runoff
-    runoff = max(s - 1.0, 0.0)
+    runoff = max(s - 1.0, 0.0) * nzr
     s = min(s, 1.0)
 
     # Evapotranspiration
@@ -293,10 +293,9 @@ function dt2daily(df)
         groupby(df, :Days),
         :Rain => sum,
         :Q => sum,
-        :s => mean,
+        :s => sum,
         :Lk => sum,
         :ET => sum,
-        skipmissing = true,
     )
     return df1
 end
