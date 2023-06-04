@@ -82,17 +82,16 @@ ew = 0.05
 et = evapotranspiration(s, sh, sw, sstar, emax, ew)
 ```
 """
-function evapotranspiration(s, sh, sw, sstar, emax, ew)::Float64
+function evapotranspiration(s, sh, sw, sstar, emax, ew)
     if s <= sh
-        et = 0.0
-    elseif sh <= s <= sw
-        et = ew * (s - sh) / (sw - sh)
-    elseif sw <= s <= sstar
-        et = ew + (emax - ew) * (s - sw) / (sstar - sw)
+        return 0.0
+    elseif s <= sw
+        return ew * (s - sh) / (sw - sh)
+    elseif s <= sstar
+        return ew + (emax - ew) * (s - sw) / (sstar - sw)
     else
-        et = emax
+        return emax
     end
-    return et
 end
 
 
@@ -186,28 +185,24 @@ function soil_water_balance(
     emax,
     ew,
     dt,
-)::Vector{Float64}
+)
     # Soil water storage
     nzr = n * zr
 
     # Add rainfall
-    s = s + rain / nzr
+    s += rain / nzr
 
     # Check for runoff
-    if s > 1.0
-        runoff = (s - 1) * nzr
-        s = 1.0
-    else
-        runoff = 0.0
-    end
+    runoff = max(s - 1.0, 0.0)
+    s = min(s, 1.0)
 
     # Evapotranspiration
     et = evapotranspiration(s, sh, sw, sstar, emax, ew) * dt
-    s = s - et / nzr
+    s -= et / nzr
 
     # Leakage
     lk = leakage(s, sfc, b, ks) * dt
-    s = s - lk / nzr
+    s -= lk / nzr
 
     # Return fluxes
     res = [s, et, lk, runoff]
@@ -301,6 +296,7 @@ function dt2daily(df)
         :s => mean,
         :Lk => sum,
         :ET => sum,
+        skipmissing = true,
     )
     return df1
 end
@@ -309,11 +305,11 @@ end
 """
 Soil penetration resistance
 
-`soil_rp(s, bd, a, b, c)`
+`soil_rp(s, bulk_density, a, b, c)`
 
 # Arguments
 - `s`: soil moisture.
-- `bd`: soil bulk density.
+- `bulk_density`: soil bulk density.
 - `a`, `b`, and `c`: soil penetration resistance parameters.
 
 # Example
@@ -323,11 +319,11 @@ bd = 1.68
 a = -5.75
 b = 6.45
 c = -15.30
-rp = soil_rp(s, bd, a, b, c)
+rp = soil_rp(s, bulk_density, a, b, c)
 ```
 """
-function soil_rp(s, bd, a, b, c)::Float64
-    rp = exp(a + b * bd + c * s)
+function soil_rp(s, bulk_density, a, b, c)
+    rp = exp(a + b * bulk_density + c * s)
     return rp
 end
 

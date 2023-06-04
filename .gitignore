@@ -9,3 +9,5 @@ Manifest.toml
 docs/build/
 tmp/
 test_model.jl
+soil-pr/
+soil-pr/*
