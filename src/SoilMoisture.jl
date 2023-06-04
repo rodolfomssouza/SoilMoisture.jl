@@ -293,10 +293,17 @@ function dt2daily(df)
         groupby(df, :Days),
         :Rain => sum,
         :Q => sum,
-        :s => sum,
+        :s => mean,
         :Lk => sum,
         :ET => sum,
     )
+
+    # Rename columns
+    rename!(df1, :Rain_sum => :Rain)
+    rename!(df1, :Q_sum => :Q)
+    rename!(df1, :s_mean => :s)
+    rename!(df1, :Lk_sum => :Lk)
+    rename!(df1, :ET_sum => :ET)
     return df1
 end
 
