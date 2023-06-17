@@ -15,6 +15,7 @@ export soil_water_balance
 export solve_swb
 export dt2daily
 export soil_rp 
+export soil_moisture_pdf
 
 
 # %% Functions ---------------------------------------------------------------
@@ -96,7 +97,7 @@ end
 
 
 """
-`leakage(s, sfc, b, ks)`
+`leakage(s, sfc, β, ks)`
 
 Computes the soil leakage
 
@@ -110,24 +111,24 @@ Computes the soil leakage
 ```
 s = 0.60
 sfc = 0.55
-b = 4.5
+β = 12.5
 ks = 150
 
-lk = leakage(s, sfc, b, ks)
+lk = leakage(s, sfc, β, ks)
 ```
 """
-function leakage(s, sfc, b, ks)::Float64
+function leakage(s, sfc, β, ks)
     if s <= sfc
         lk = 0
     else
-        lk = ks * s^b
+        lk = ks * s^β
     end
     return lk
 end
 
 
 """
-`water_loss(s, sh, sw, sstar, sfc, emax, ew, b, ks)`
+`water_loss(s, sh, sw, sstar, sfc, emax, ew, β, ks)`
 
 Water loss function
 
@@ -141,12 +142,12 @@ Combines evapotranspiration and leakage as a function of soil moisture.
 - `sfc`: soil moisture at field capacity.
 - `emax`: maximum evapotranspiration rate.
 - `ew`: soil evaporation rate.
-- `b`: leakage curve exponent.
+- `β`: leakage curve exponent.
 - `ks`: hydralic conductivity.
 """
-function water_loss(s, sh, sw, sstar, sfc, emax, ew, b, ks)::Float64
+function water_loss(s, sh, sw, sstar, sfc, emax, ew, β, ks)::Float64
     et = evapotranspiration(s, sh, sw, sstar, emax, ew)
-    lk = leakage(s, sfc, b, ks)
+    lk = leakage(s, sfc, β, ks)
     return et + lk
 end
 
@@ -163,7 +164,7 @@ This function assumes that the canopy interception is negligible.
 - `sw`: soil moisture at wilting point.
 - `sstar`: soil moisture below field capacity.
 - `sfc`: soil moisture at field capacity.
-- `b`: leakage curve exponent.
+- `β`: leakage curve exponent.
 - `ks`: hydralic conductivity.
 - `n`: porosity.
 - `zr`: root zone depth.
@@ -178,7 +179,7 @@ function soil_water_balance(
     sw,
     sstar,
     sfc,
-    b,
+    β,
     ks,
     n,
     zr,
@@ -201,7 +202,7 @@ function soil_water_balance(
     s -= et / nzr
 
     # Leakage
-    lk = leakage(s, sfc, b, ks) * dt
+    lk = leakage(s, sfc, β, ks) * dt
     s -= lk / nzr
 
     # Return fluxes
@@ -225,7 +226,7 @@ function solve_swb(rain, s, params)
     sw = params[:sw]
     sstar = params[:sstar]
     sfc = params[:sfc]
-    b = params[:b]
+    β = params[:β]
     ks = params[:ks]
     n = params[:n]
     zr = params[:zr]
@@ -257,7 +258,7 @@ function solve_swb(rain, s, params)
             sw,
             sstar,
             sfc,
-            b,
+            β,
             ks,
             n,
             zr,
@@ -331,6 +332,88 @@ rp = soil_rp(s, bulk_density, a, b, c)
 function soil_rp(s, bulk_density, a, b, c)
     rp = exp(a + b * bulk_density + c * s)
     return rp
+end
+
+
+"""
+Soil moisture pdf
+
+`soil_moisture_pdf(s, sh, sw, sstar, sfc, β, ks, n, zr, ew, emax, α, λ)`
+
+# Arguments
+- `s`: soil moisture.
+- `sh`: soil moisture at hygroscopic point.
+- `sw`: soil moisture at wilting point.
+- `sstar`: soil moisture below field capacity.
+- `sfc`: soil moisture at field capacity.
+- `β`: leakage curve exponent.
+- `ks`: hydralic conductivity.
+- `n`: porosity.
+- `zr`: root zone depth.
+- `emax`: maximum evapotranspiration rate.
+- `ew`: soil evaporation rate.
+- `α`: mean rainfall depth.
+- `λ`: mean rainfall frequency.
+
+# Example
+```
+s = [0.1:0.01:1;]
+sh = 0.1
+sw = 0.2
+sstar = 0.45
+sfc = 0.65
+β = 12.5
+ks = 120.0
+n = 0.45
+zr = 40.0
+ew = 0.05
+emax = 0.5
+α = 0.95
+λ = 0.5
+p = soil_moisture_pdf(s, sh, sw, sstar, sfc, β, ks, n, zr, ew, emax, α, λ)
+```
+"""
+function soil_moisture_pdf(s, sh, sw, sstar, sfc, β, ks, n, zr, ew, emax, α, λ)
+    # Calculate soil moisture pdf based on Equation 31 from https://doi.org/10.1016/S0309-1708(01)00006-9
+    # Define constants
+    η_w = ew / (n * zr)
+    η = emax / (n * zr)
+    m = ks / (n * zr * (exp(β * (1 - sfc)) - 1))
+    γ = (n * zr) / α
+    C = 1
+    p = similar(s, Float64)
+
+    # Calculate pdf
+    for i in eachindex(s)
+        if s[i] <= sh
+            p[i] = 0.0
+        elseif s[i] <= sw
+            p1 = C / η_w
+            p2 = ((s[i] - sh) / (sw - sh))^((λ * (sw - sh)/η_w) - 1)
+            p3 = exp(-γ * s[i])
+            p[i] = p1 * p2 * p3
+        elseif s[i] <= sstar
+            p1 = C / η_w
+            p2 = (1 + ((η/η_w) - 1) * ((s[i] - sw)/(sstar - sw)))^((λ*(sstar - sw))/(η - η_w) - 1)
+            p3 = exp(-γ * s[i])
+            p[i] = p1 * p2 * p3
+        elseif s[i] <= sfc
+            p1 = C / η
+            p2 = exp(-γ * s[i] + λ*(s[i] - sstar)/η)
+            p3 = (η/η_w)^(λ * (sstar - sw)/(η - η_w))
+            p[i] = p1 * p2 * p3
+        else
+            p1 = (C/η) * exp(-(β + γ) * s[i] + β * sfc)
+            p2 = ((η * exp(β * s[i]))/((η - m) * exp(β * sfc) + m * exp(β * s[i])))^((λ/(β * (η - m))) + 1)
+            p3 = (η/η_w)^(λ * (sstar - sw)/(η - η_w))
+            p4 = exp((λ/η) * (sfc - sstar))
+            p[i] = p1 * p2 * p3 * p4
+        end
+    end
+    interval = s[2] - s[1]
+    integral = sum(p) * interval
+    @. p = p / integral
+    return p
 end
 
 end
